@@ -1,0 +1,61 @@
+{
+  "users": [
+    {
+      "email": "test@test.com",
+      "password": "123456",
+      "name": "test",
+      "id": "j8XeiGeBKfY"
+    },
+    {
+      "email": "test2@test.com",
+      "password": "OSVJOIDEJBOI99",
+      "name": "Владислава",
+      "id": "yqCe2HMhV1w"
+    },
+    {
+      "email": "test3@test.com",
+      "password": "gedgedg344",
+      "name": "Влада",
+      "id": "p4Yemu7s3-g"
+    }
+  ],
+  "habits": [
+    {
+      "title": "Бег",
+      "description": "",
+      "days": [
+        "Сб",
+        "Чт",
+        "Пт"
+      ],
+      "streak": 1,
+      "status": "active",
+      "userId": "p4Yemu7s3-g",
+      "id": "F0LS_d2xYrc",
+      "isCompletedToday": true
+    },
+    {
+      "title": "иавпита",
+      "description": "",
+      "days": [
+        "Чт",
+        "Ср"
+      ],
+      "streak": 1,
+      "userId": "p4Yemu7s3-g",
+      "id": "39eqPlEXIbc",
+      "isCompletedToday": true
+    }
+  ],
+  "goals": [
+    {
+      "title": "ввивиа",
+      "target": 6,
+      "current": 2,
+      "deadline": "2026-03-31",
+      "userId": "p4Yemu7s3-g",
+      "id": "ZVuScs3N1JU"
+    }
+  ],
+  "$schema": "./node_modules/json-server/schema.json"
+}

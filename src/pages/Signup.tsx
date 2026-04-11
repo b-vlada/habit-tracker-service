@@ -3,25 +3,31 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Eye, EyeOff } from 'lucide-react';
 
-export const Login = () => {
+export const Signup = () => {
+  const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const { signIn } = useAuth();
+  const { signUp } = useAuth();
   const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    setLoading(true);
 
+    if (password.length < 6) {
+      setError('Пароль должен быть не менее 6 символов');
+      return;
+    }
+
+    setLoading(true);
     try {
-      await signIn(email, password);
+      await signUp(email, password, name);
       navigate('/');
     } catch (err: any) {
-      setError(err.message || 'Ошибка входа. Проверьте email и пароль.');
+      setError(err.message || 'Ошибка регистрации');
     } finally {
       setLoading(false);
     }
@@ -31,10 +37,10 @@ export const Login = () => {
     <div className="min-h-screen bg-[#F5F5EB] flex items-center justify-center p-4">
       <div className="bg-white p-8 rounded-2xl shadow-lg max-w-md w-full">
         <h1 className="text-2xl font-bold text-center text-neutral-dark mb-2">
-          С возвращением!
+          Создание аккаунта
         </h1>
         <p className="text-center text-neutral-gray mb-8">
-          Войдите в свой аккаунт
+          Начните отслеживать свои привычки
         </p>
 
         {error && (
@@ -44,6 +50,20 @@ export const Login = () => {
         )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-neutral-dark mb-2">
+              Имя
+            </label>
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Ваше имя"
+              className="w-full px-4 py-3 border border-[#8E9B6D]/30 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#8E9B6D]/50 text-lg"
+              required
+            />
+          </div>
+
           <div>
             <label className="block text-sm font-medium text-neutral-dark mb-2">
               Email
@@ -88,14 +108,14 @@ export const Login = () => {
             disabled={loading}
             className="w-full py-3 bg-[#8E9B6D] text-white rounded-xl font-medium hover:bg-[#8E9B6D]/90 transition-colors disabled:opacity-50"
           >
-            {loading ? 'Вход...' : 'Войти'}
+            {loading ? 'Создание...' : 'Создать аккаунт'}
           </button>
         </form>
 
         <p className="mt-6 text-center text-neutral-gray">
-          Нет аккаунта?{' '}
-          <Link to="/signup" className="text-[#8E9B6D] font-medium hover:underline">
-            Зарегистрироваться
+          Уже есть аккаунт?{' '}
+          <Link to="/login" className="text-[#8E9B6D] font-medium hover:underline">
+            Войти
           </Link>
         </p>
       </div>

@@ -1,35 +1,33 @@
-import { Routes, Route } from 'react-router-dom';
-import { useState, useEffect } from 'react';
+import { Routes, Route, Navigate } from 'react-router-dom';
+import { useAuth } from './context/AuthContext';
 import { Sidebar } from './components/layout/Sidebar';
 import { BottomNav } from './components/layout/BottomNav';
 import { Login } from './pages/Login';
+import { Signup } from './pages/Signup';
 import { Home } from './pages/Home';
 import { Habits } from './pages/Habits';
 import { Goals } from './pages/Goals';
 import { Statistics } from './pages/Statistics';
 
 function App() {
-  const [userName, setUserName] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const { user, loading } = useAuth();
 
-  useEffect(() => {
-    const storedName = localStorage.getItem('userName');
-    if (storedName) {
-      setUserName(storedName);
-    }
-    setIsLoading(false);
-  }, []);
-
-  if (isLoading) {
+  if (loading) {
     return (
       <div className="min-h-screen bg-[#F5F5EB] flex items-center justify-center">
-        <div className="text-neutral-gray">Загрузка...</div>
+        <div className="text-neutral-gray text-xl">Загрузка...</div>
       </div>
     );
   }
 
-  if (!userName) {
-    return <Login />;
+  if (!user) {
+    return (
+      <Routes>
+        <Route path="/login" element={<Login />} />
+        <Route path="/signup" element={<Signup />} />
+        <Route path="*" element={<Navigate to="/login" replace />} />
+      </Routes>
+    );
   }
 
   return (
@@ -38,7 +36,7 @@ function App() {
       
       <main className="flex-1 px-4 pt-6 pb-56 lg:pb-8 lg:ml-64 lg:pt-8 w-full max-w-5xl mx-auto overflow-x-hidden">
         <Routes>
-          <Route path="/" element={<Home userName={userName} />} />
+          <Route path="/" element={<Home userName={user.name || user.email.split('@')[0]} />} />
           <Route path="/habits" element={<Habits />} />
           <Route path="/goals" element={<Goals />} />
           <Route path="/stats" element={<Statistics />} />

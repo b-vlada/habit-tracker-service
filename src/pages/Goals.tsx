@@ -1,289 +1,175 @@
-import { useState } from 'react';
-import { useStore } from '../store/useStore';
+import { useState, useEffect } from 'react';
 import { Plus, Search, Edit2, BarChart3, Trash2, X, Calendar, Hourglass } from 'lucide-react';
-import { Goal } from '../types';
 import { useNavigate } from 'react-router-dom';
+import { api } from '../services/api';
 
 export const Goals = () => {
   const navigate = useNavigate();
-  const { goals, addGoal, deleteGoal, updateGoal } = useStore();
-  const [searchQuery, setSearchQuery] = useState('');
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingGoal, setEditingGoal] = useState<Goal | null>(null);
+  const [goals, setGoals] = useState<any[]>([]);
+  const [search, setSearch] = useState('');
+  const [modalOpen, setModalOpen] = useState(false);
+  const [formData, setFormData] = useState<any>({ id: null, title: '', target: 0, current: 0, deadline: '' });
 
-  const [formData, setFormData] = useState({
-    title: '',
-    target: 0,
-    current: 0,
-    deadline: '',
-  });
+  useEffect(() => { load(); }, []);
 
-  const filteredGoals = goals.filter(g =>
-    g.title.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-
-  const openModal = (goal?: Goal) => {
-    if (goal) {
-      setEditingGoal(goal);
-      setFormData({
-        title: goal.title,
-        target: goal.target,
-        current: goal.current,
-        deadline: goal.deadline,
-      });
-    } else {
-      setEditingGoal(null);
-      setFormData({
-        title: '',
-        target: 0,
-        current: 0,
-        deadline: '',
-      });
-    }
-    setIsModalOpen(true);
+  const load = async () => {
+    const data = await api.getGoals();
+    setGoals(data);
   };
 
-  const closeModal = () => {
-    setIsModalOpen(false);
-    setEditingGoal(null);
+  const openModal = (goal: any = null) => {
+    setFormData({
+      id: goal?.id || null,
+      title: goal?.title || '',
+      target: goal?.target || 0,
+      current: goal?.current || 0,
+      deadline: goal?.deadline || ''
+    });
+    setModalOpen(true);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const save = async (e: React.FormEvent) => {
     e.preventDefault();
+    const { id, ...data } = formData;
     
-    if (editingGoal) {
-      const updated: Goal = {
-        ...editingGoal,
-        title: formData.title,
-        target: formData.target,
-        current: formData.current,
-        deadline: formData.deadline,
-      };
-      updateGoal(updated);
+    if (id) {
+      const updated = await api.updateGoal(id, data);
+      setGoals(goals.map(g => g.id === updated.id ? updated : g));
     } else {
-      const newGoal: Goal = {
-        id: Date.now().toString(),
-        title: formData.title,
-        target: formData.target,
-        current: formData.current,
-        deadline: formData.deadline,
-      };
-      addGoal(newGoal);
+      const newGoal = await api.createGoal(data);
+      setGoals([...goals, newGoal]);
     }
-    closeModal();
+    setModalOpen(false);
   };
 
-  const handleDelete = (id: string) => {
-    if (window.confirm('Удалить эту цель?')) {
-      deleteGoal(id);
-    }
+  const remove = async (id: string) => {
+    if (!confirm('Удалить?')) return;
+    await api.deleteGoal(id);
+    setGoals(goals.filter(g => g.id !== id));
   };
 
-  const getProgress = (goal: Goal) => {
-    if (!goal.target || goal.target === 0) return 0;
-    return Math.round((goal.current / goal.target) * 100);
-  };
+  const progress = (goal: any) => goal.target ? Math.round((goal.current / goal.target) * 100) : 0;
 
-  const getDaysLeft = (deadline: string) => {
+  const daysLeft = (deadline: string) => {
     if (!deadline) return 0;
-    const deadlineDate = new Date(deadline);
-    if (isNaN(deadlineDate.getTime())) return 0;
-    const days = Math.ceil((deadlineDate.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
-    return days > 0 ? days : 0;
+    const days = Math.ceil((new Date(deadline).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+    return Math.max(0, days);
   };
 
-  const formatDate = (dateString: string) => {
-    if (!dateString) return '';
-    const date = new Date(dateString);
-    if (isNaN(date.getTime())) return '';
-    return date.toLocaleDateString('ru-RU');
-  };
+  const filtered = goals.filter(g => g.title.toLowerCase().includes(search.toLowerCase()));
 
   return (
     <div className="max-w-5xl mx-auto">
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl lg:text-3xl font-bold text-neutral-dark">Мои цели</h1>
-        <button
-          onClick={() => openModal()}
-          className="flex items-center gap-2 px-4 py-2 bg-[#B3907A] text-white rounded-xl hover:bg-[#B3907A]/90 transition-colors"
-        >
-          <Plus size={20} />
-          Добавить
+        <h1 className="text-2xl font-bold">Мои цели</h1>
+        <button onClick={() => openModal()} className="flex items-center gap-2 px-4 py-2 bg-[#B3907A] text-white rounded-xl hover:bg-[#B3907A]/90">
+          <Plus size={20} /> Добавить
         </button>
       </div>
 
-      <div className="mb-4 lg:mb-6">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-gray" size={20} />
-          <input
-            type="text"
-            placeholder="Поиск цели..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-3 border border-[#8E9B6D]/30 rounded-xl lg:rounded-btn focus:outline-none focus:ring-2 focus:ring-[#8E9B6D]/50 bg-white/80"
-          />
-        </div>
+      <div className="mb-6 relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
+        <input
+          type="text"
+          placeholder="Поиск..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="w-full pl-10 pr-4 py-3 border border-[#8E9B6D]/30 rounded-xl focus:ring-2 focus:ring-[#8E9B6D]/50 outline-none"
+        />
       </div>
 
-      <div className="space-y-3 lg:space-y-4">
-        {filteredGoals.length === 0 ? (
-          <div className="text-center py-12 bg-[#F5F5EB] rounded-xl lg:rounded-card border border-[#B3907A] border-dashed">
-            <p className="text-neutral-gray mb-4">Целей пока нет</p>
-            <button
-              onClick={() => openModal()}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-[#B3907A] text-white rounded-xl hover:bg-[#B3907A]/90"
-            >
-              <Plus size={20} />
-              Создать первую цель
-            </button>
-          </div>
-        ) : (
-          filteredGoals.map(goal => (
-            <div
-              key={goal.id}
-              className="bg-[#F5F5EB] p-4 lg:p-5 rounded-xl lg:rounded-card border-[3px] border-[#B3907A]"
-            >
-              <div className="flex justify-between items-start mb-3">
-                <div className="flex-1">
-                  <h3 className="text-lg font-bold text-neutral-dark mb-2">{goal.title}</h3>
-                  <div className="flex flex-wrap items-center gap-3 lg:gap-4 text-sm text-neutral-gray mb-3">
-                    <span className="flex items-center gap-1">
-                      <Calendar size={16} className="text-[#B3907A]" />
-                      До {formatDate(goal.deadline) || 'не указан'}
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <Hourglass size={16} className="text-[#B3907A]" />
-                      {getDaysLeft(goal.deadline)} дней
-                    </span>
-                  </div>
+      <div className="space-y-4">
+        {filtered.length ? filtered.map((g) => (
+          <div key={g.id} className="bg-[#F5F5EB] p-5 rounded-xl border-2 border-[#B3907A]">
+            <div className="flex justify-between items-start mb-3">
+              <div>
+                <h3 className="font-bold text-lg mb-2">{g.title}</h3>
+                <div className="flex gap-4 text-sm text-gray-500">
+                  <span className="flex items-center gap-1">
+                    <Calendar size={14} className="text-[#B3907A]" />
+                    До {g.deadline || 'не указан'}
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <Hourglass size={14} className="text-[#B3907A]" />
+                    {daysLeft(g.deadline)} дн.
+                  </span>
                 </div>
-              </div>
-
-              <div className="mb-4">
-                <div className="w-full bg-gray-200 rounded-full h-3 mb-1">
-                  <div 
-                    className="bg-[#B3907A] h-3 rounded-full transition-all duration-300"
-                    style={{ width: `${getProgress(goal)}%` }}
-                  />
-                </div>
-                <p className="text-sm text-[#B3907A] font-medium text-right">{getProgress(goal)}%</p>
-              </div>
-
-              <div className="flex justify-end gap-2">
-                <button
-                  onClick={() => openModal(goal)}
-                  className="p-2 bg-[#B3907A] text-white rounded-lg hover:bg-[#B3907A]/90 transition-colors"
-                >
-                  <Edit2 size={16} />
-                </button>
-                <button 
-                  onClick={() => navigate('/stats')}
-                  className="p-2 bg-[#8E9B6D] text-white rounded-lg hover:bg-[#8E9B6D]/90 transition-colors"
-                >
-                  <BarChart3 size={16} />
-                </button>
-                <button
-                  onClick={() => handleDelete(goal.id)}
-                  className="p-2 bg-[#940501] text-white rounded-lg hover:bg-[#940501]/90 transition-colors"
-                >
-                  <Trash2 size={16} />
-                </button>
               </div>
             </div>
-          ))
+
+            <div className="mb-4">
+              <div className="w-full bg-gray-200 rounded-full h-3">
+                <div className="bg-[#B3907A] h-3 rounded-full transition-all" style={{ width: `${progress(g)}%` }} />
+              </div>
+              <p className="text-sm text-[#B3907A] font-medium text-right mt-1">{progress(g)}%</p>
+            </div>
+
+            <div className="flex justify-end gap-2">
+              <button onClick={() => openModal(g)} className="p-2 bg-[#B3907A] text-white rounded-lg hover:bg-[#B3907A]/90">
+                <Edit2 size={16} />
+              </button>
+              <button onClick={() => navigate('/stats')} className="p-2 bg-[#8E9B6D] text-white rounded-lg hover:bg-[#8E9B6D]/90">
+                <BarChart3 size={16} />
+              </button>
+              <button onClick={() => remove(g.id)} className="p-2 bg-red-600 text-white rounded-lg hover:bg-red-700">
+                <Trash2 size={16} />
+              </button>
+            </div>
+          </div>
+        )) : (
+          <div className="text-center py-12 text-gray-500 bg-[#F5F5EB] rounded-xl border-2 border-dashed border-[#B3907A]">
+            Нет целей. Создай первую!
+          </div>
         )}
       </div>
 
-      {isModalOpen && (
-        <div className="fixed inset-0 bg-black/50 flex items-end lg:items-center justify-center z-50 p-0 lg:p-4">
-          <div className="bg-white rounded-t-2xl lg:rounded-card w-full lg:max-w-lg max-h-[90vh] overflow-auto">
-            <div className="flex justify-between items-center p-6 border-b border-[#8E9B6D]/20">
-              <h2 className="text-xl font-bold text-neutral-dark">
-                {editingGoal ? 'Редактировать цель' : 'Добавить цель'}
-              </h2>
-              <button
-                onClick={closeModal}
-                className="p-2 hover:bg-[#8E9B6D]/10 rounded-btn transition-colors"
-              >
-                <X size={20} />
+      {modalOpen && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <form onSubmit={save} className="bg-white rounded-2xl w-full max-w-md p-6 space-y-4">
+            <div className="flex justify-between items-center">
+              <h2 className="text-xl font-bold">{formData.id ? 'Изменить' : 'Новая цель'}</h2>
+              <button type="button" onClick={() => setModalOpen(false)}>
+                <X size={24} />
               </button>
             </div>
 
-            <form onSubmit={handleSubmit} className="p-6 space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-neutral-dark mb-1">
-                  Название цели
-                </label>
-                <input
-                  type="text"
-                  value={formData.title}
-                  onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                  placeholder="Например: Прочитать 20 книг"
-                  className="w-full px-4 py-2 border border-[#8E9B6D]/30 rounded-btn focus:outline-none focus:ring-2 focus:ring-[#8E9B6D]/50"
-                  required
-                />
-              </div>
+            <input
+              required
+              placeholder="Название цели"
+              value={formData.title}
+              onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+              className="w-full p-3 border rounded-lg outline-none focus:ring-2 focus:ring-[#B3907A]"
+            />
 
-              {editingGoal && (
-                <div>
-                  <label className="block text-sm font-medium text-neutral-dark mb-1">
-                    Текущий результат (вручную)
-                  </label>
-                  <input
-                    type="number"
-                    value={formData.current || ''}
-                    onChange={(e) => setFormData({ ...formData, current: Number(e.target.value) })}
-                    placeholder="0"
-                    className="w-full px-4 py-2 border border-[#8E9B6D]/30 rounded-btn focus:outline-none focus:ring-2 focus:ring-[#8E9B6D]/50"
-                    required
-                  />
-                </div>
-              )}
+            <div className="grid grid-cols-2 gap-4">
+              <input
+                type="number"
+                required
+                placeholder="Цель (число)"
+                value={formData.target || ''}
+                onChange={(e) => setFormData({ ...formData, target: Number(e.target.value) })}
+                className="p-3 border rounded-lg outline-none focus:ring-2 focus:ring-[#B3907A]"
+              />
+              <input
+                type="number"
+                placeholder="Текущее"
+                value={formData.current || ''}
+                onChange={(e) => setFormData({ ...formData, current: Number(e.target.value) })}
+                className="p-3 border rounded-lg outline-none focus:ring-2 focus:ring-[#B3907A]"
+              />
+            </div>
 
-              <div>
-                <label className="block text-sm font-medium text-neutral-dark mb-1">
-                  Целевое значение
-                </label>
-                <input
-                  type="number"
-                  value={formData.target || ''}
-                  onChange={(e) => setFormData({ ...formData, target: Number(e.target.value) })}
-                  placeholder="Например: 20"
-                  className="w-full px-4 py-2 border border-[#8E9B6D]/30 rounded-btn focus:outline-none focus:ring-2 focus:ring-[#8E9B6D]/50"
-                  required
-                />
-              </div>
+            <input
+              type="date"
+              value={formData.deadline}
+              onChange={(e) => setFormData({ ...formData, deadline: e.target.value })}
+              className="w-full p-3 border rounded-lg outline-none focus:ring-2 focus:ring-[#B3907A]"
+            />
 
-              <div>
-                <label className="block text-sm font-medium text-neutral-dark mb-1">
-                  Дедлайн
-                </label>
-                <input
-                  type="date"
-                  value={formData.deadline}
-                  onChange={(e) => setFormData({ ...formData, deadline: e.target.value })}
-                  className="w-full px-4 py-2 border border-[#8E9B6D]/30 rounded-btn focus:outline-none focus:ring-2 focus:ring-[#8E9B6D]/50"
-                  required
-                />
-              </div>
-
-              <div className="flex gap-3 pt-4">
-                <button
-                  type="submit"
-                  className="flex-1 px-4 py-2 bg-[#B3907A] text-white rounded-btn hover:bg-[#B3907A]/90 font-medium"
-                >
-                  Сохранить
-                </button>
-                <button
-                  type="button"
-                  onClick={closeModal}
-                  className="flex-1 px-4 py-2 bg-[#8E9B6D] text-white rounded-btn hover:bg-[#8E9B6D]/90 font-medium"
-                >
-                  Отмена
-                </button>
-              </div>
-            </form>
-          </div>
+            <button type="submit" className="w-full py-3 bg-[#B3907A] text-white rounded-xl font-bold hover:bg-[#B3907A]/90">
+              Сохранить
+            </button>
+          </form>
         </div>
       )}
     </div>

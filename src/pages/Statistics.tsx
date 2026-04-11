@@ -1,5 +1,21 @@
-import { useStore } from '../store/useStore';
+import { useState, useEffect } from 'react';
+import { api } from '../services/api';
 import { Check, X, Flame, TrendingUp } from 'lucide-react';
+
+interface Habit {
+  id: string;
+  title: string;
+  isCompletedToday: boolean;
+  streak: number;
+  completedDate: string | null;
+}
+
+interface Goal {
+  id: string;
+  title: string;
+  target: number;
+  current: number;
+}
 
 const HabitBlockIcon = () => (
   <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -9,18 +25,31 @@ const HabitBlockIcon = () => (
 );
 
 export const Statistics = () => {
-  const { habits, goals } = useStore();
+  const [habits, setHabits] = useState<Habit[]>([]);
+  const [goals, setGoals] = useState<Goal[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const totalCompleted = habits.reduce((acc, habit) => acc + (habit.isCompletedToday ? 1 : 0), 0);
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        const [habitsData, goalsData] = await Promise.all([api.getHabits(), api.getGoals()]);
+        setHabits(habitsData);
+        setGoals(goalsData);
+      } catch (err) {
+        console.error('Ошибка загрузки данных:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadData();
+  }, []);
+
+  const totalCompleted = habits.filter(h => h.isCompletedToday).length;
   const maxStreak = habits.length > 0 ? Math.max(...habits.map(h => h.streak), 0) : 0;
   const successRate = habits.length > 0 ? Math.round((totalCompleted / habits.length) * 100) : 0;
 
   const getWeekDays = () => {
     const today = new Date();
-    const todayStr = today.toDateString();
-    const todayStart = new Date(today);
-    todayStart.setHours(0, 0, 0, 0);
-    
     const dayOfWeek = today.getDay();
     const monday = new Date(today);
     monday.setDate(today.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1));
@@ -32,14 +61,13 @@ export const Statistics = () => {
       const currentDate = new Date(monday);
       currentDate.setDate(monday.getDate() + i);
       const dateStr = currentDate.toDateString();
-      const isPastOrToday = currentDate <= todayStart;
       const completedOnThisDay = habits.some(h => h.completedDate === dateStr);
+      const isToday = i === (dayOfWeek === 0 ? 6 : dayOfWeek - 1);
 
-      let status = 'upcoming';
-      if (completedOnThisDay) status = 'completed';
-      else if (isPastOrToday) status = 'missed';
-
-      days.push({ day: dayNames[i], status });
+      days.push({
+        day: dayNames[i],
+        status: completedOnThisDay ? 'completed' : isToday ? 'today' : 'missed'
+      });
     }
     return days;
   };
@@ -49,23 +77,27 @@ export const Statistics = () => {
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'completed': return 'bg-[#8E9B6D]';
-      case 'missed': return 'bg-[#B3907A]';
-      case 'failed': return 'bg-[#940501]';
+      case 'today': return 'bg-[#B3907A]';
+      case 'missed': return 'bg-gray-300';
       default: return 'bg-gray-300';
     }
   };
 
-  const getProgress = (goal: typeof goals[0]) => {
+  const getProgress = (goal: Goal) => {
     if (!goal.target || goal.target === 0) return 0;
     return Math.round((goal.current / goal.target) * 100);
   };
+
+  if (loading) {
+    return <div className="text-center py-12">Загрузка статистики...</div>;
+  }
 
   return (
     <div className="max-w-5xl mx-auto">
       <h1 className="text-2xl lg:text-3xl font-bold mb-6 text-neutral-dark">Статистика</h1>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-4 mb-6 lg:mb-8">
-        <div className="bg-bg-card p-4 lg:p-6 rounded-xl lg:rounded-card border border-[#8E9B6D]/20">
+        <div className="bg-[#F5F5EB] p-4 lg:p-6 rounded-xl border border-[#8E9B6D]/20">
           <div className="flex items-center gap-3">
             <div className="p-2 lg:p-3 bg-[#8E9B6D]/20 rounded-lg">
               <Check className="text-[#8E9B6D]" size={20} />
@@ -77,7 +109,7 @@ export const Statistics = () => {
           </div>
         </div>
 
-        <div className="bg-bg-card p-4 lg:p-6 rounded-xl lg:rounded-card border border-[#B3907A]/20">
+        <div className="bg-[#F5F5EB] p-4 lg:p-6 rounded-xl border border-[#B3907A]/20">
           <div className="flex items-center gap-3">
             <div className="p-2 lg:p-3 bg-[#B3907A]/20 rounded-lg">
               <X className="text-[#B3907A]" size={20} />
@@ -89,7 +121,7 @@ export const Statistics = () => {
           </div>
         </div>
 
-        <div className="bg-bg-card p-4 lg:p-6 rounded-xl lg:rounded-card border border-[#B3907A]/20">
+        <div className="bg-[#F5F5EB] p-4 lg:p-6 rounded-xl border border-[#B3907A]/20">
           <div className="flex items-center gap-3">
             <div className="p-2 lg:p-3 bg-[#B3907A]/20 rounded-lg">
               <Flame className="text-[#B3907A]" size={20} />
@@ -101,7 +133,7 @@ export const Statistics = () => {
           </div>
         </div>
 
-        <div className="bg-bg-card p-4 lg:p-6 rounded-xl lg:rounded-card border border-[#8E9B6D]/20">
+        <div className="bg-[#F5F5EB] p-4 lg:p-6 rounded-xl border border-[#8E9B6D]/20">
           <div className="flex items-center gap-3">
             <div className="p-2 lg:p-3 bg-[#8E9B6D]/20 rounded-lg">
               <TrendingUp className="text-[#8E9B6D]" size={20} />
@@ -114,7 +146,7 @@ export const Statistics = () => {
         </div>
       </div>
 
-      <div className="bg-bg-card p-4 lg:p-6 rounded-xl lg:rounded-card mb-6 lg:mb-8 border border-[#8E9B6D]/10">
+      <div className="bg-[#F5F5EB] p-4 lg:p-6 rounded-xl mb-6 lg:mb-8 border border-[#8E9B6D]/10">
         <h2 className="text-lg lg:text-xl font-bold text-neutral-dark mb-6 flex items-center gap-2">
           <HabitBlockIcon />
           График выполнения привычек
@@ -137,19 +169,17 @@ export const Statistics = () => {
           </div>
           <div className="flex items-center gap-2">
             <div className="w-3 h-3 lg:w-4 lg:h-4 rounded-full bg-[#B3907A]" />
-            <span className="text-xs lg:text-sm text-neutral-gray">Пропущено</span>
+            <span className="text-xs lg:text-sm text-neutral-gray">Сегодня</span>
           </div>
           <div className="flex items-center gap-2">
-            <div className="w-3 h-3 lg:w-4 lg:h-4 rounded-full bg-[#940501]" />
-            <span className="text-xs lg:text-sm text-neutral-gray">Провалено</span>
+            <div className="w-3 h-3 lg:w-4 lg:h-4 rounded-full bg-gray-300" />
+            <span className="text-xs lg:text-sm text-neutral-gray">Пропущено</span>
           </div>
         </div>
       </div>
 
-      <div className="bg-bg-card p-4 lg:p-6 rounded-xl lg:rounded-card border border-[#B3907A]/10">
-        <h2 className="text-lg lg:text-xl font-bold text-neutral-dark mb-6 flex items-center gap-2">
-          Прогресс по целям
-        </h2>
+      <div className="bg-[#F5F5EB] p-4 lg:p-6 rounded-xl border border-[#B3907A]/10">
+        <h2 className="text-lg lg:text-xl font-bold text-neutral-dark mb-6">Прогресс по целям</h2>
         
         <div className="space-y-4">
           {goals.map(goal => (
