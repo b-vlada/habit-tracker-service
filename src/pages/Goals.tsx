@@ -3,54 +3,116 @@ import { Plus, Search, Edit2, BarChart3, Trash2, X, Calendar, Hourglass } from '
 import { useNavigate } from 'react-router-dom';
 import { api } from '../services/api';
 
+interface Goal {
+  id: string;
+  title: string;
+  target: number;
+  current: number;
+  deadline?: string;
+  status?: string;
+  createdAt: string;
+}
+
 export const Goals = () => {
   const navigate = useNavigate();
-  const [goals, setGoals] = useState<any[]>([]);
+  const [goals, setGoals] = useState<Goal[]>([]);
   const [search, setSearch] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
-  const [formData, setFormData] = useState<any>({ id: null, title: '', target: 0, current: 0, deadline: '' });
+  const [formData, setFormData] = useState({ 
+    id: null as string | null, 
+    title: '', 
+    target: '', 
+    current: '', 
+    deadline: '' 
+  });
 
   useEffect(() => { load(); }, []);
 
   const load = async () => {
-    const data = await api.getGoals();
-    setGoals(data);
+    try {
+      const data = await api.getGoals();
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
+      for (const goal of data) {
+        if (goal.deadline && goal.status !== 'completed' && goal.status !== 'failed') {
+          const deadlineDate = new Date(goal.deadline);
+          if (deadlineDate < today) {
+            await api.updateGoal(goal.id, { ...goal, status: 'failed' });
+          }
+        }
+      }
+      
+      const updatedData = await api.getGoals();
+      setGoals(updatedData);
+    } catch (error) {
+      console.error('Ошибка загрузки:', error);
+    }
   };
 
-  const openModal = (goal: any = null) => {
+  const openModal = (goal: Goal | null = null) => {
     setFormData({
       id: goal?.id || null,
       title: goal?.title || '',
-      target: goal?.target || 0,
-      current: goal?.current || 0,
+      target: String(goal?.target || ''),
+      current: String(goal?.current || ''),
       deadline: goal?.deadline || ''
     });
     setModalOpen(true);
   };
 
+  const progress = (goal: Goal) => {
+    if (!goal.target || goal.target === 0) return 0;
+    const pct = Math.round((goal.current / goal.target) * 100);
+    return Math.min(pct, 100);
+  };
+
   const save = async (e: React.FormEvent) => {
     e.preventDefault();
-    const { id, ...data } = formData;
     
-    if (id) {
-      const updated = await api.updateGoal(id, data);
-      setGoals(goals.map(g => g.id === updated.id ? updated : g));
-    } else {
-      const newGoal = await api.createGoal(data);
-      setGoals([...goals, newGoal]);
+    const targetNum = Number(formData.target);
+    const currentNum = Number(formData.current);
+    
+    if (isNaN(targetNum) || isNaN(currentNum)) {
+      alert('Введите корректные числа');
+      return;
     }
-    setModalOpen(false);
+    
+    const goalData = {
+      title: formData.title,
+      target: targetNum,
+      current: currentNum,
+      deadline: formData.deadline,
+      status: 'active' as const
+    };
+    
+    try {
+      if (formData.id) {
+        const updated = await api.updateGoal(formData.id, goalData);
+        setGoals(goals.map(g => g.id === updated.id ? updated : g));
+      } else {
+        const newGoal = await api.createGoal(goalData);
+        setGoals(prev => [...prev, newGoal]);
+      }
+      setModalOpen(false);
+      setFormData({ id: null, title: '', target: '', current: '', deadline: '' });
+    } catch (error) {
+      console.error('Ошибка сохранения:', error);
+      alert('Ошибка при сохранении цели');
+    }
   };
 
   const remove = async (id: string) => {
     if (!confirm('Удалить?')) return;
-    await api.deleteGoal(id);
-    setGoals(goals.filter(g => g.id !== id));
+    try {
+      await api.deleteGoal(id);
+      setGoals(goals.filter(g => g.id !== id));
+    } catch (error) {
+      console.error('Ошибка удаления:', error);
+    }
   };
 
-  const progress = (goal: any) => goal.target ? Math.round((goal.current / goal.target) * 100) : 0;
-
-  const daysLeft = (deadline: string) => {
+  const daysLeft = (deadline: string | undefined) => {
     if (!deadline) return 0;
     const days = Math.ceil((new Date(deadline).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
     return Math.max(0, days);
@@ -95,13 +157,24 @@ export const Goals = () => {
                   </span>
                 </div>
               </div>
+              {g.status === 'failed' && (
+                <span className="px-3 py-1 bg-red-100 text-red-600 rounded-lg text-sm font-medium">Просрочена</span>
+              )}
+              {g.status === 'completed' && (
+                <span className="px-3 py-1 bg-green-100 text-green-600 rounded-lg text-sm font-medium">Выполнена</span>
+              )}
             </div>
 
             <div className="mb-4">
-              <div className="w-full bg-gray-200 rounded-full h-3">
-                <div className="bg-[#B3907A] h-3 rounded-full transition-all" style={{ width: `${progress(g)}%` }} />
+              <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
+                <div 
+                  className={`h-3 rounded-full transition-all ${g.status === 'failed' ? 'bg-red-400' : g.status === 'completed' ? 'bg-green-500' : 'bg-[#B3907A]'}`} 
+                  style={{ width: `${progress(g)}%` }} 
+                />
               </div>
-              <p className="text-sm text-[#B3907A] font-medium text-right mt-1">{progress(g)}%</p>
+              <p className="text-sm text-[#B3907A] font-medium text-right mt-1">
+                {g.current} / {g.target} ({progress(g)}%)
+              </p>
             </div>
 
             <div className="flex justify-end gap-2">
@@ -146,15 +219,15 @@ export const Goals = () => {
                 type="number"
                 required
                 placeholder="Цель (число)"
-                value={formData.target || ''}
-                onChange={(e) => setFormData({ ...formData, target: Number(e.target.value) })}
+                value={formData.target}
+                onChange={(e) => setFormData({ ...formData, target: e.target.value })}
                 className="p-3 border rounded-lg outline-none focus:ring-2 focus:ring-[#B3907A]"
               />
               <input
                 type="number"
                 placeholder="Текущее"
-                value={formData.current || ''}
-                onChange={(e) => setFormData({ ...formData, current: Number(e.target.value) })}
+                value={formData.current}
+                onChange={(e) => setFormData({ ...formData, current: e.target.value })}
                 className="p-3 border rounded-lg outline-none focus:ring-2 focus:ring-[#B3907A]"
               />
             </div>

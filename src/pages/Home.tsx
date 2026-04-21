@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, ChevronRight, X, ListChecks, Flame, Target, Trash2 } from 'lucide-react';
+import { Plus, ChevronRight, X, ListTodo, Flame, CheckCircle2, Trash2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../services/api';
 
@@ -70,15 +70,15 @@ export const Home = ({ userName }: { userName: string }) => {
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
         <div className="bg-[#8E9B6D] p-5 rounded-xl text-white flex items-center gap-4 shadow-sm">
-          <div className="p-3 bg-white/20 rounded-lg"><ListChecks size={24} /></div>
-          <div><p className="text-sm opacity-80">Всего привычек</p><p className="text-2xl font-bold">{activeHabits.length}</p></div>
+          <div className="p-3 bg-white/20 rounded-lg"><ListTodo size={24} /></div>
+          <div><p className="text-sm opacity-80">Всего задач</p><p className="text-2xl font-bold">{activeHabits.length + goals.length}</p></div>
         </div>
         <div className="bg-[#B3907A] p-5 rounded-xl text-white flex items-center gap-4 shadow-sm">
           <div className="p-3 bg-white/20 rounded-lg"><Flame size={24} /></div>
           <div><p className="text-sm opacity-80">Стрик</p><p className="text-2xl font-bold">{maxStreak} дней</p></div>
         </div>
         <div className="bg-[#8E9B6D] p-5 rounded-xl text-white flex items-center gap-4 shadow-sm md:col-span-1">
-          <div className="p-3 bg-white/20 rounded-lg"><Target size={24} /></div>
+          <div className="p-3 bg-white/20 rounded-lg"><CheckCircle2 size={24} /></div>
           <div><p className="text-sm opacity-80">Выполнено сегодня</p><p className="text-2xl font-bold">{completedToday}</p></div>
         </div>
       </div>
